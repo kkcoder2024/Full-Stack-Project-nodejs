@@ -3,21 +3,18 @@ import express from "express";
 dotenv.config({ path: "./.env" });
 const app = express();
 import { connectionDB } from "./database/db.js";
-connectionDB();
-// (async () => {
-//   try {
-//     await mongoose.connect(`${process.env.MONGODB_URI}/${DB_NAME}`);
-//     app.on("error", (error) => {
-//       //check if the express talk to database or not
-//       console.log("Express Error:" + error);
-//       throw error;
-//     });
-
-//     app.listen(process.env.PORT, () => {
-//       console.log(`App is connected on port: ${process.env.PORT}`);
-//     });
-//   } catch (error) {
-//     console.error("ERROR" + error);
-//     throw error;
-//   }
-// })();
+// this async function return a Promise so that we can work with it and handle it properly
+connectionDB()
+  .then(() => {
+    app.on("error", (error) => {
+      //check if the express talk to database or not
+      console.log("Express Error:" + error);
+      throw error;
+    });
+    app.listen(process.env.PORT, () => {
+      console.log(`Server is running on port: ${process.env.PORT}`);
+    });
+  })
+  .catch((err) => {
+    console.error(`Database failed to connect!! ${err}`);
+  });
