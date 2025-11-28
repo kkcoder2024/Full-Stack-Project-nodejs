@@ -1,7 +1,7 @@
 import dotenv from "dotenv";
 import express from "express";
 dotenv.config({ path: "./.env" });
-const app = express();
+import { app } from "./app.js";
 import { connectionDB } from "./database/db.js";
 // this async function return a Promise so that we can work with it and handle it properly
 connectionDB()
