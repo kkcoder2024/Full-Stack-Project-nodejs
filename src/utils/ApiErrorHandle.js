@@ -18,3 +18,4 @@ class ApiErrorHandle extends Error {
     }
   }
 }
+export { ApiErrorHandle };
