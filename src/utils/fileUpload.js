@@ -1,5 +1,6 @@
 import { v2 as cloudinary } from "cloudinary";
-import fs from "fs";
+import fs, { existsSync, unlinkSync } from "fs";
+import { ApiErrorHandle } from "./ApiErrorHandle";
 cloudinary.config({
   cloud_name: "db7qmdfr2",
   api_key: "723248213726281",
@@ -13,11 +14,33 @@ const uploadOnCloudinary = async (localFilePath) => {
     fs.unlinkSync(localFilePath);
     return response;
   } catch (error) {
-    console.error("Cloudinary Upload Error:", error.message);
-    console.error("Full Error:", error);
+    new ApiErrorHandle(500, "Cloudinary Upload Error:", error.message);
     fs.unlinkSync(localFilePath); // this will remove the failed to uploaded file from
     // server that are temporaly store in local
     return null;
   }
 };
-export { uploadOnCloudinary };
+
+const updateImageOnCloudinary = async (OldImageUrl, newImageURL) => {
+  try {
+    if (!newImageURL || !OldImageUrl) {
+      new ApiErrorHandle(500, "Image path not found.");
+    }
+
+    const publicId = OldImageUrl.split("/").pop().split(".")[0];
+    const uploadImage = await cloudinary.uploader.upload(newImageURL, {
+      public_id: publicId,
+      overwrite: true,
+      invalidate: true,
+    });
+
+    if (existsSync(newImageURL)) {
+      unlinkSync(newImageURL);
+    }
+
+    return uploadImage.url;
+  } catch (error) {
+    new ApiErrorHandle(500, "Cloudinary Upload Error:", error.message);
+  }
+};
+export { uploadOnCloudinary, updateImageOnCloudinary };

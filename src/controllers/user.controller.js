@@ -1,9 +1,13 @@
 import { asyncHandler } from "../utils/asyncHandler.js";
 import { ApiErrorHandle } from "../utils/ApiErrorHandle.js";
 import { User } from "../models/user.model.js";
-import { uploadOnCloudinary } from "../utils/fileUpload.js";
+import {
+  updateImageOnCloudinary,
+  uploadOnCloudinary,
+} from "../utils/fileUpload.js";
 import { ApiRespnse } from "../utils/ApiRespnse.js";
 import jwt from "jsonwebtoken";
+import { use } from "react";
 
 const generateAccessAndRefreshToken = async (userId) => {
   try {
@@ -201,4 +205,183 @@ const refreshAccessToken = asyncHandler(async (req, res) => {
   }
 });
 
-export { registerUser, loginUser, logoutUser, refreshAccessToken };
+const currentPassword = asyncHandler(async (req, res) => {
+  const { oldPassword, newPassword, confirmPassword } = req.body;
+  if (newPassword !== confirmPassword) {
+    throw new ApiErrorHandle(
+      400,
+      "Please match password with confirm password."
+    );
+  }
+  const user = await User.findById(req.user._id);
+  const isPasswordCorrect = await user.isPasswordCorrect(oldPassword);
+
+  if (!isPasswordCorrect) {
+    throw new ApiErrorHandle(400, "Invalid Password!");
+  }
+  user.password = newPassword;
+  await user.save({ validateBeforeSave: false });
+
+  return res
+    .status(200)
+    .json(new ApiRespnse(200, {}, "Password changed successfully."));
+});
+
+const getCurrentUser = asyncHandler(async (req, res) => {
+  return res
+    .status(200)
+    .json(new ApiRespnse(200, req.user, "Current User Fetched successfully.")); //req.user this comes from middelware
+});
+
+const updateUserDetails = asyncHandler(async (req, res) => {
+  const { fullname, email } = req.body;
+  const user = await User.findByIdAndUpdate(
+    req.user._id,
+    {
+      $set: {
+        fullname, // if both name same then write just email
+        email: email,
+      },
+    },
+    {
+      new: true,
+    }
+  ).select("-password");
+  return res
+    .status(200)
+    .json(new ApiRespnse(200, user, "User details updated successfully."));
+});
+
+const updateAvater = asyncHandler(async (req, res) => {
+  const avatarLocalPath = req.file?.path;
+  if (!avatarLocalPath) {
+    throw new ApiErrorHandle(400, "Avatar file not uploaded!");
+  }
+
+  const avatar = await uploadOnCloudinary(avatarLocalPath);
+  if (!avatar.url) {
+    throw new ApiErrorHandle(400, "Avatar file fail to upload on server!");
+  }
+  const oldImage = await User.findById(req.user._id);
+  const updatedCloudinaryImage = await updateImageOnCloudinary(
+    oldImage.avatar,
+    avatarLocalPath
+  );
+
+  const user = await User.findByIdAndUpdate(
+    req.user._id,
+    {
+      $set: {
+        avatar: updatedCloudinaryImage,
+      },
+    },
+    {
+      new: true,
+    }
+  ).select("-password");
+
+  return res
+    .status(200)
+    .json(new ApiRespnse(200, user, "User avatar update successfully."));
+});
+
+const updateCoverImage = asyncHandler(async (req, res) => {
+  const coverImageLocal = req.file?.path;
+  if (!coverImageLocal) {
+    throw new ApiErrorHandle(400, "Cover Image not upladed!");
+  }
+
+  const coverImage = await uploadOnCloudinary(coverImageLocal);
+  if (!coverImage.url) {
+    throw new ApiErrorHandle(400, "Cover Image not upladed!");
+  }
+  const oldCoverImage = await User.findById(req.user._id);
+  const updateCoverImgOnCloudinary = await updateImageOnCloudinary(
+    oldCoverImage.coverImage,
+    coverImageLocal
+  );
+
+  const user = await User.findByIdAndUpdate(
+    req.user._id,
+    {
+      $set: {
+        coverImage: updateCoverImgOnCloudinary,
+      },
+    },
+    { new: true }
+  ).select("-password");
+
+  return res
+    .status(200)
+    .json(new ApiRespnse(200, user, "Cover Image updated successfully."));
+});
+
+const getUserChannelProfile = asyncHandler(async (req, res) => {
+  const { username } = req.params;
+  if (!username?.trim()) {
+    throw new ApiErrorHandle(400, "User name not found!");
+  }
+
+  const getChannel = await User.aggregate([
+    {
+      $match: { username: username?.toLowerCase() },
+    },
+    {
+      $lookup: {
+        from: "subscriptions",
+        localField: "_id",
+        foreignField: "channel",
+        as: "subscribers",
+      },
+    },
+    {
+      $lookup: {
+        from: "subscriptions",
+        localField: "_id",
+        foreignField: "subscriber",
+        as: "subscribedTo",
+      },
+    },
+    {
+      $addFields: {
+        subscriberCount: {
+          $size: "$subscribers",
+        },
+        channelSubcribedToCount: {
+          $size: "$subscribedTo",
+        },
+        isCubcribed: {
+          $cond: {
+            if: { $in: [req.user?._id, "$subscribers.subscriber"] },
+            then: true,
+            else: false,
+          },
+        },
+      },
+    },
+    {
+      $project: {
+        fullname: 1,
+        username: 1,
+        email: 1,
+        avatar: 1,
+        coverImage: 1,
+        subscriberCount: 1,
+        channelSubcribedToCount: 1,
+        isCubcribed: 1,
+      },
+    },
+  ]); //aggregate pipeline retuen arrays in result
+});
+
+export {
+  registerUser,
+  loginUser,
+  logoutUser,
+  refreshAccessToken,
+  currentPassword,
+  getCurrentUser,
+  updateUserDetails,
+  updateAvater,
+  updateCoverImage,
+};

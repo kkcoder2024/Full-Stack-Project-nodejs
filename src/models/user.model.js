@@ -90,4 +90,6 @@ userSchema.methods.generateRefreshToken = function () {
   );
 };
 
+userSchema.methods.updateImageOnCloudinary = function (newImageUrl) {};
+
 export const User = mongoose.model("User", userSchema);
