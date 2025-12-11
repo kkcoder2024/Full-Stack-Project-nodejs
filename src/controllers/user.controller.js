@@ -205,7 +205,7 @@ const refreshAccessToken = asyncHandler(async (req, res) => {
   }
 });
 
-const currentPassword = asyncHandler(async (req, res) => {
+const changeCurrentPassword = asyncHandler(async (req, res) => {
   const { oldPassword, newPassword, confirmPassword } = req.body;
   if (newPassword !== confirmPassword) {
     throw new ApiErrorHandle(
@@ -445,7 +445,7 @@ export {
   loginUser,
   logoutUser,
   refreshAccessToken,
-  currentPassword,
+  changeCurrentPassword,
   getCurrentUser,
   updateUserDetails,
   updateAvater,
