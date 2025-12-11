@@ -1,13 +1,13 @@
-import mongoose, { Schema } from "mongoose";
+import mongoose from "mongoose";
 const subscriotionSchema = new mongoose.Schema(
   {
     subscriber: {
-      type: Schema.Types.ObjectId, //subscriber
+      type: mongoose.Schema.Types.ObjectId, //subscriber
       ref: "User",
     },
 
     channel: {
-      type: Schema.Types.ObjectId, //account owner
+      type: mongoose.Schema.Types.ObjectId, //account owner
       ref: "User",
     },
   },

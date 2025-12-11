@@ -7,7 +7,7 @@ import {
 } from "../utils/fileUpload.js";
 import { ApiRespnse } from "../utils/ApiRespnse.js";
 import jwt from "jsonwebtoken";
-import { use } from "react";
+import mongoose from "mongoose";
 
 const generateAccessAndRefreshToken = async (userId) => {
   try {
@@ -329,16 +329,16 @@ const getUserChannelProfile = asyncHandler(async (req, res) => {
     {
       $lookup: {
         from: "subscriptions",
-        localField: "_id",
         foreignField: "channel",
+        localField: "_id",
         as: "subscribers",
       },
     },
     {
       $lookup: {
         from: "subscriptions",
-        localField: "_id",
         foreignField: "subscriber",
+        localField: "_id",
         as: "subscribedTo",
       },
     },
@@ -372,6 +372,72 @@ const getUserChannelProfile = asyncHandler(async (req, res) => {
       },
     },
   ]); //aggregate pipeline retuen arrays in result
+
+  if (!getChannel?.length) {
+    throw new ApiErrorHandle(404, "Channel does not exist.");
+  }
+
+  return res
+    .status(200)
+    .json(new ApiRespnse(200, "Channels fetched successfully."));
+});
+
+const getUserWatchHistory = asyncHandler(async (req, res) => {
+  const user = await User.aggregate([
+    {
+      $match: {
+        // _id: req.user._id, //when $match work for collect data through _id, in aggregate method, mongoose not work,
+        // so we directly not send the id in string, we modify string into objectID
+        _id: new mongoose.Types.ObjectId(req.user?._id),
+      },
+    },
+    {
+      $lookup: {
+        from: "videos",
+        foreignField: "_id",
+        localField: "watchHistory",
+        as: "watchHistory",
+        pipeline: [
+          {
+            $lookup: {
+              from: "users",
+              foreignField: "_id",
+              localStorage: "owner",
+              as: "owner",
+              pipeline: [
+                {
+                  $project: {
+                    username: 1,
+                    fullname: 1,
+                    avatar: 1,
+                  },
+                },
+              ],
+            },
+          },
+          {
+            $addFields: {
+              owner: {
+                $first: "owner",
+              },
+            },
+          },
+        ],
+      },
+    },
+  ]);
+  if (!user) {
+    throw new ApiErrorHandle(400, "User not found!");
+  }
+  return res
+    .status(200)
+    .json(
+      new ApiRespnse(
+        200,
+        user[0].watchHistory,
+        "Watch History fetched successfully"
+      )
+    ); // user return an array
 });
 
 export {
@@ -384,4 +450,6 @@ export {
   updateUserDetails,
   updateAvater,
   updateCoverImage,
+  getUserChannelProfile,
+  getUserWatchHistory,
 };
